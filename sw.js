@@ -1,6 +1,6 @@
 // Offline support: keeps a copy of the app files on the phone.
 // Bump VERSION whenever you upload changed files, so phones pick up the update.
-const VERSION = 'payslip-v2';
+const VERSION = 'payslip-v3';
 const FILES = ['./', 'index.html', 'jspdf.umd.min.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -158,6 +158,35 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
 .rec .acts button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:7px;padding:6px 11px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
 .rec .acts button.del{color:var(--danger)}
 .rec .acts button.del.arm{background:var(--danger);color:var(--surface);border-color:var(--danger)}
+/* Transfer slips */
+.att{display:flex;flex-direction:column;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
+.att-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.att-head .t{font-size:.8rem;font-weight:600;color:var(--muted)}
+label.add{display:inline-block}
+label.add:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.att-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.tile{position:relative;border:1px solid var(--line);border-radius:8px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.tile .pv{display:block;width:100%;aspect-ratio:3/4;max-width:100%;border:0;padding:0;background:var(--surface);cursor:pointer}
+.tile .pv img{width:100%;height:100%;object-fit:cover;display:block}
+.tile .pv .pdf{display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--f-num);font-weight:600;color:var(--accent);font-size:1rem}
+.tile .nm{font-size:.7rem;color:var(--muted);padding:4px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .rm{border:0;background:transparent;color:var(--danger);font:inherit;font-size:.72rem;font-weight:600;padding:2px 6px 6px;text-align:left;cursor:pointer}
+.tile .rm.arm{background:var(--danger);color:var(--surface)}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.thumbs button{width:44px;height:56px;border:1px solid var(--line);border-radius:6px;padding:0;overflow:hidden;background:var(--bg);cursor:pointer;flex:0 0 auto}
+.thumbs button img{width:100%;height:100%;object-fit:cover;display:block}
+.thumbs button span{font-family:var(--f-num);font-size:.68rem;font-weight:600;color:var(--accent)}
+.thumbs .lbl{font-size:.75rem;color:var(--muted)}
+.viewer{position:fixed;inset:0;z-index:20;background:rgba(6,14,13,.92);display:flex;flex-direction:column;
+  padding-block:calc(10px + env(safe-area-inset-top,0px)) calc(10px + env(safe-area-inset-bottom,0px));
+  padding-left:max(12px, env(safe-area-inset-left, 0px));padding-right:max(12px, env(safe-area-inset-right, 0px))}
+.viewer .vbar{display:flex;align-items:center;gap:8px;color:#fff}
+.viewer .vbar .vn{flex:1;min-width:0;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viewer .vbar button,.viewer .vbar a{border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;border-radius:7px;padding:7px 12px;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none}
+.viewer .vbody{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding-top:10px}
+.viewer .vbody img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+.viewer .vbody .vpdf{color:#fff;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.viewer .vbody .vpdf a{color:#fff;font-weight:600}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:22px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -223,6 +252,14 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
           <div class="hint" id="splitHint"></div>
           <label class="f" for="note">Remarks<textarea id="note" rows="3" placeholder="e.g. Transferred to mother in Indonesia, 9 Nov. Medical: clinic visit 12 Oct."></textarea></label>
           <span class="hint">Amounts and remarks print on the slip under Remarks.</span>
+          <div class="att">
+            <div class="att-head">
+              <span class="t" id="attTitle">Transfer slips</span>
+              <label class="add" for="attFile">+ Attach slip<input type="file" id="attFile" class="vh" accept="image/*,application/pdf" multiple></label>
+            </div>
+            <div class="att-list" id="attList"></div>
+            <span class="hint" id="attHint">Photo or PDF of the bank or remittance receipt. Kept on this phone with this month; not printed on the payslip.</span>
+          </div>
         </fieldset>
       </form>
 
@@ -240,7 +277,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   <!-- HISTORY -->
   <section id="viewHist" hidden>
     <div class="backup">
-      <p>Payslips are stored only on this phone, inside this app. <span id="backupInfo"></span></p>
+      <p>Payslips and transfer slips are stored only on this phone, inside this app. <span id="backupInfo"></span></p>
       <div class="btns">
         <button type="button" id="exportBtn">Export backup</button>
         <label for="importFile">Import backup<input type="file" id="importFile" class="vh" accept=".json,application/json"></label>
@@ -281,6 +318,15 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
       <div class="hint ok" id="masterStatus" role="status">Changes save automatically and apply to new slips.</div>
     </form>
   </section>
+</div>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Transfer slip" hidden>
+  <div class="vbar">
+    <span class="vn" id="vName"></span>
+    <button type="button" id="vShare">Share</button>
+    <button type="button" id="vClose">Close</button>
+  </div>
+  <div class="vbody" id="vBody"></div>
 </div>
 
 <div class="bar" id="bar">
@@ -487,6 +533,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
     $('dedOut').textContent = 'RM ' + fmt(c.totalDed);
     $('barNet').textContent = 'RM ' + fmt(c.net);
     renderHints(R, c); $('slip').innerHTML = slipHTML(R, c); saveDraft();
+    renderAtt();
   }
 
   FIELDS.forEach(k => {
@@ -576,6 +623,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
     host.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openRec(b.dataset.open));
     host.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => download(HIST[b.dataset.pdf], 'histStatus'));
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => delRec(b));
+    host.querySelectorAll('[data-view]').forEach(b => b.onclick = () => openViewer(b.dataset.view));
   }
   function recHTML(r){
     const net = num(r.net), h = num(r.sentHome), k = num(r.keptHere), recorded = has(r.sentHome) || has(r.keptHere);
@@ -587,6 +635,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
         (Math.abs(left) >= 0.005 ? '<span class="tag">'+(left>0 ? 'RM '+fmt(left)+' unaccounted' : 'RM '+fmt(-left)+' over net')+'</span>' : '')+'</div>'
         : '<div class="tag">Transfer not recorded</div>')+
       (has(r.note) ? '<div class="note">'+esc(r.note)+'</div>' : '')+
+      thumbsHTML(r.month)+
       '<div class="acts"><button type="button" data-open="'+esc(r.month)+'">Open / edit</button><button type="button" data-pdf="'+esc(r.month)+'">PDF</button><button type="button" class="del" data-del="'+esc(r.month)+'">Delete</button></div></article>';
   }
   function openRec(month){
@@ -597,13 +646,200 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   }
   function delRec(b){
     const m = b.dataset.del;
+    const n = attFor(m).length;
     if (!b.classList.contains('arm')) {
-      b.classList.add('arm'); b.textContent = 'Tap again to delete';
+      b.classList.add('arm'); b.textContent = n ? 'Tap again: delete with ' + n + (n === 1 ? ' slip' : ' slips') : 'Tap again to delete';
       setTimeout(() => { if (b.isConnected) { b.classList.remove('arm'); b.textContent = 'Delete'; } }, 4000);
       return;
     }
-    delete HIST[m]; persistHist(); renderHist(); update();
+    delete HIST[m]; persistHist();
+    attFor(m).forEach(a => removeAtt(a.id));
+    renderHist(); update();
     $('histStatus').textContent = 'Deleted ' + monthLabel(m) + '.';
+  }
+
+  // ---------- transfer slips (IndexedDB: much more room than localStorage) ----------
+  // Each file: {id, month, name, type, size, addedAt, data: ArrayBuffer}. In memory we keep metadata + an object URL.
+  let ATT = [];
+  let attKeyShown = '';
+  const MAX_PDF = 10 * 1024 * 1024;
+  let idbP = null;
+  function idb(){
+    if (!idbP) idbP = new Promise((res, rej) => {
+      if (!window.indexedDB) { rej(new Error('IndexedDB unavailable')); return; }
+      const rq = indexedDB.open('helper-payslip', 1);
+      rq.onupgradeneeded = () => { const s = rq.result.createObjectStore('files', {keyPath:'id'}); s.createIndex('month', 'month'); };
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+    return idbP;
+  }
+  // Runs fn(store) inside one transaction; resolves with the result of the request fn returns.
+  async function idbRun(mode, fn){
+    const db = await idb();
+    return new Promise((res, rej) => {
+      const t = db.transaction('files', mode);
+      const r = fn(t.objectStore('files'));
+      t.oncomplete = () => res(r ? r.result : undefined);
+      t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    });
+  }
+  const readBuf = blob => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsArrayBuffer(blob); });
+  const toMeta = rec => ({id:rec.id, month:rec.month, name:rec.name, type:rec.type, size:rec.size, addedAt:rec.addedAt,
+    url: URL.createObjectURL(new Blob([rec.data], {type:rec.type}))});
+  const attFor = m => ATT.filter(a => a.month === m).sort((a,b) => a.addedAt.localeCompare(b.addedAt));
+  const isImg = a => /^image\//.test(a.type);
+
+  async function loadAtts(){
+    try {
+      const all = await idbRun('readonly', s => s.getAll());
+      ATT.forEach(a => URL.revokeObjectURL(a.url));
+      ATT = (all || []).map(toMeta);
+    } catch(e) { $('attHint').textContent = 'Attachments are not available in this browser.'; }
+    attKeyShown = ''; renderAtt(); renderHist();
+  }
+
+  // Photos are scaled to at most 2000px and saved as JPEG (a few hundred KB) so many months fit comfortably.
+  async function prepareFile(file){
+    const base = (file.name || 'transfer-slip').replace(/\.[^.]+$/, '');
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')) {
+      if (file.size > MAX_PDF) throw new Error(file.name + ' is over 10 MB.');
+      return {name: base + '.pdf', type:'application/pdf', data: await readBuf(file)};
+    }
+    if (!/^image\//.test(file.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(file.name || '')) throw new Error((file.name || 'That file') + ' is not a photo or PDF.');
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('decode')); i.src = url; });
+      const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.82));
+      if (!blob) throw new Error('encode');
+      return {name: base + '.jpg', type:'image/jpeg', data: await readBuf(blob)};
+    } catch(e) {
+      if (file.size > MAX_PDF) throw new Error((file.name || 'That photo') + ' could not be read.');
+      return {name: file.name || base, type: file.type || 'application/octet-stream', data: await readBuf(file)};   // keep the original as-is
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  async function addFiles(files){
+    const month = S.month;
+    if (!month) { status('Pick a month first.'); return; }
+    const hint = $('attHint');
+    let added = 0; const errs = [];
+    for (const f of files) {
+      hint.textContent = 'Adding ' + (f.name || 'file') + '…';
+      try {
+        const p = await prepareFile(f);
+        const rec = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), month, name:p.name, type:p.type,
+          size:p.data.byteLength, addedAt:new Date().toISOString(), data:p.data};
+        await idbRun('readwrite', s => s.put(rec));
+        ATT.push(toMeta(rec)); added++;
+      } catch(e) {
+        errs.push(e && e.name === 'QuotaExceededError' ? 'The phone is out of space for attachments.' : (e && e.message && !/^(decode|encode)$/.test(e.message) ? e.message : 'Could not add ' + (f.name || 'a file') + '.'));
+      }
+    }
+    askPersist();
+    attKeyShown = ''; renderAtt(); renderHist();
+    hint.textContent = errs.length ? errs.join(' ') : 'Added ' + added + (added === 1 ? ' slip' : ' slips') + ' to ' + monthLabel(month) + '. Kept on this phone; not printed on the payslip.';
+  }
+  async function removeAtt(id){
+    try { await idbRun('readwrite', s => s.delete(id)); } catch(e) { return false; }
+    const i = ATT.findIndex(a => a.id === id);
+    if (i >= 0) { URL.revokeObjectURL(ATT[i].url); ATT.splice(i, 1); }
+    attKeyShown = ''; renderAtt(); renderHist();
+    return true;
+  }
+
+  function tileInner(a){ return isImg(a) ? '<img src="'+a.url+'" alt="">' : '<span class="pdf">PDF</span>'; }
+  function renderAtt(){
+    const list = attFor(S.month);
+    const key = S.month + '|' + list.map(a => a.id).join(',');
+    if (key === attKeyShown) return;
+    attKeyShown = key;
+    $('attTitle').textContent = list.length ? 'Transfer slips (' + list.length + ')' : 'Transfer slips';
+    $('attList').innerHTML = list.map(a =>
+      '<div class="tile"><button type="button" class="pv" data-view="'+a.id+'" aria-label="View '+esc(a.name)+'">'+tileInner(a)+'</button>'+
+      '<div class="nm">'+esc(dateLabel(a.addedAt.slice(0,10)))+'</div>'+
+      '<button type="button" class="rm" data-rm="'+a.id+'">Remove</button></div>').join('');
+    $('attList').querySelectorAll('[data-view]').forEach(b => b.onclick = () => openViewer(b.dataset.view));
+    $('attList').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+      if (!b.classList.contains('arm')) {
+        b.classList.add('arm'); b.textContent = 'Tap to confirm';
+        setTimeout(() => { if (b.isConnected) { b.classList.remove('arm'); b.textContent = 'Remove'; } }, 4000);
+        return;
+      }
+      removeAtt(b.dataset.rm).then(ok => { $('attHint').textContent = ok ? 'Removed.' : 'Could not remove it. Try again.'; });
+    });
+  }
+  function thumbsHTML(month){
+    const list = attFor(month);
+    if (!list.length) return '';
+    return '<div class="thumbs">'+list.map(a => '<button type="button" data-view="'+a.id+'" aria-label="View '+esc(a.name)+'">'+(isImg(a) ? '<img src="'+a.url+'" alt="">' : '<span>PDF</span>')+'</button>').join('')+
+      '<span class="lbl">'+list.length+(list.length === 1 ? ' transfer slip' : ' transfer slips')+'</span></div>';
+  }
+
+  // Full-screen viewer
+  let viewing = null;
+  function openViewer(id){
+    const a = ATT.find(x => x.id === id); if (!a) return;
+    viewing = a;
+    $('vName').textContent = monthLabel(a.month) + ' · ' + a.name;
+    $('vBody').innerHTML = isImg(a) ? '<img src="'+a.url+'" alt="Transfer slip for '+esc(monthLabel(a.month))+'">'
+      : '<div class="vpdf"><span>PDF transfer slip</span><a href="'+a.url+'" target="_blank" rel="noopener">Open PDF</a><span style="font-size:.8rem;opacity:.75">Or tap Share to save it or open it in another app.</span></div>';
+    $('viewer').hidden = false;
+    $('vClose').focus();
+  }
+  function closeViewer(){ $('viewer').hidden = true; $('vBody').innerHTML = ''; viewing = null; }
+  $('vClose').onclick = closeViewer;
+  $('vShare').onclick = async () => {
+    if (!viewing) return;
+    const blob = await fetch(viewing.url).then(r => r.blob()).catch(() => null);
+    if (!blob) return;
+    const ext = viewing.name.match(/\.[^.]+$/) ? '' : (isImg(viewing) ? '.jpg' : '.pdf');
+    await saveFile('Transfer_slip_' + viewing.month + '_' + viewing.name.replace(/[^\w.\- ]+/g,'').replace(/\s+/g,'_') + ext, blob, () => {});
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('viewer').hidden) closeViewer(); });
+
+  $('attFile').addEventListener('change', e => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length) addFiles(files);
+  });
+
+  // Backup helpers: files travel inside the backup JSON as base64
+  function bufToB64(buf){
+    const bytes = new Uint8Array(buf); let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function b64ToBuf(b64){
+    const s = atob(b64), bytes = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return bytes.buffer;
+  }
+  async function exportAtts(){
+    if (!ATT.length) return [];
+    const all = await idbRun('readonly', s => s.getAll());
+    return (all || []).map(r => ({id:r.id, month:r.month, name:r.name, type:r.type, addedAt:r.addedAt, data:bufToB64(r.data)}));
+  }
+  async function importAtts(list){
+    let n = 0;
+    for (const a of list) {
+      if (!a || !a.id || !/^\d{4}-\d{2}$/.test(String(a.month)) || typeof a.data !== 'string') continue;
+      try {
+        const data = b64ToBuf(a.data);
+        const rec = {id:String(a.id), month:a.month, name:String(a.name || 'transfer-slip'), type:String(a.type || 'application/octet-stream'),
+          size:data.byteLength, addedAt:String(a.addedAt || new Date().toISOString()), data};
+        await idbRun('readwrite', s => s.put(rec));
+        const i = ATT.findIndex(x => x.id === rec.id);
+        if (i >= 0) { URL.revokeObjectURL(ATT[i].url); ATT.splice(i, 1); }
+        ATT.push(toMeta(rec)); n++;
+      } catch(e) {}
+    }
+    if (n) { askPersist(); attKeyShown = ''; renderAtt(); }
+    return n;
   }
 
   // ---------- save ----------
@@ -623,7 +859,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   // ---------- backup ----------
   // Phone: opens the share sheet (Save to Files, WhatsApp, Print…). Elsewhere: a normal download.
   async function saveFile(filename, data, st){
-    const mime = filename.endsWith('.pdf') ? 'application/pdf' : 'application/json';
+    const mime = (data instanceof Blob && data.type) ? data.type : filename.endsWith('.pdf') ? 'application/pdf' : 'application/json';
     const blob = data instanceof Blob ? data : new Blob([data], {type:mime});
     let file = null;
     try { file = new File([blob], filename, {type:mime}); } catch(e) {}
@@ -643,12 +879,17 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   async function exportBackup(){
     const st = msg => { $('histStatus').textContent = msg; };
     const recs = Object.values(HIST).sort((a,b) => a.month.localeCompare(b.month));
-    if (!recs.length) { st('Nothing to export yet.'); return; }
-    const body = JSON.stringify({app:'helper-payslip', version:2, exportedAt:new Date().toISOString(), master:MASTER, payslips:recs}, null, 2);
+    if (!recs.length && !ATT.length) { st('Nothing to export yet.'); return; }
+    st('Preparing backup…');
+    let attachments = [];
+    try { attachments = await exportAtts(); }
+    catch(e) { st('Could not read the transfer slips, so the backup was not made. Try again.'); return; }
+    const body = JSON.stringify({app:'helper-payslip', version:3, exportedAt:new Date().toISOString(), master:MASTER, payslips:recs, attachments});
     const filename = 'payslip-backup-' + todayISO() + '.json';
     if (await saveFile(filename, body, st)) {
       try { localStorage.setItem(BKEY, new Date().toISOString()); } catch(e) {}
-      st('Backup saved: ' + filename); renderBackupInfo();
+      st('Backup saved: ' + filename + (attachments.length ? ' (includes ' + attachments.length + (attachments.length === 1 ? ' transfer slip)' : ' transfer slips)') : ''));
+      renderBackupInfo();
     }
   }
   function importBackup(file){
@@ -671,9 +912,13 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
         if (Array.isArray(m.deds) && !MASTER.deds.length) MASTER.deds = m.deds;
         put(MKEY, MASTER); fillMaster();
       }
-      if (!persistHist()) st('Imported, but this device would not keep it.');
-      else st('Imported ' + (added + replaced) + ' payslips' + (replaced ? ' (' + replaced + ' replaced)' : '') + '.');
-      renderHist(); update();
+      const okHist = persistHist();
+      importAtts(Array.isArray(data.attachments) ? data.attachments : []).then(nAtt => {
+        if (!okHist) st('Imported, but this device would not keep it.');
+        else st('Imported ' + (added + replaced) + ' payslips' + (replaced ? ' (' + replaced + ' replaced)' : '') +
+          (nAtt ? ' and ' + nAtt + (nAtt === 1 ? ' transfer slip' : ' transfer slips') : '') + '.');
+        renderHist(); update();
+      });
     };
     fr.onerror = () => st('Could not read that file.');
     fr.readAsText(file);
@@ -801,6 +1046,7 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
     $('masterStatus').textContent = 'Start here: fill in her details once. They save automatically.';
   }
   fillMaster(); fillForm(); renderHist(); route();
+  loadAtts();
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
