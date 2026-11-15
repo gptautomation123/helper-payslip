@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Helper Payslip</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Payslip">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2F6F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1413" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+html{color-scheme:light;-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}
+/* Layout: three views (new slip / history / master). Slip view = form column + paper preview; sticky action bar on phones */
+:root{
+  --bg:#F2F6F5; --surface:#FFFFFF; --ink:#13201E; --muted:#5A6B68; --line:#D3DEDB;
+  --accent:#0F6E66; --accent-ink:#FFFFFF; --accent-soft:#E2EFEC; --danger:#B3261E;
+  --home:#C27A12; --keep:#0F6E66;
+  --paper:#FFFFFF; --paper-ink:#13201E; --paper-muted:#66736F; --paper-line:#DCE4E2; --paper-band:#EAF3F1;
+  --f-body:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-num:ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1413; --surface:#151F1D; --ink:#E3ECEA; --muted:#94A4A0; --line:#2A3835;
+  --accent:#43B5A8; --accent-ink:#06201C; --accent-soft:#17312D; --danger:#F2867E;
+  --home:#E9A54A; --keep:#43B5A8;
+  --paper:#1A2523; --paper-ink:#E3ECEA; --paper-muted:#9AAAA6; --paper-line:#2E3D3A; --paper-band:#1F302D;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1413; --surface:#151F1D; --ink:#E3ECEA; --muted:#94A4A0; --line:#2A3835;
+  --accent:#43B5A8; --accent-ink:#06201C; --accent-soft:#17312D; --danger:#F2867E;
+  --home:#E9A54A; --keep:#43B5A8;
+  --paper:#1A2523; --paper-ink:#E3ECEA; --paper-muted:#9AAAA6; --paper-line:#2E3D3A; --paper-band:#1F302D;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:16px 120px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;margin:0}
+.tabs{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:7px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+@media (min-width:860px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,400px)}.preview-col{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));align-self:start}.wrap{padding-block:24px 40px}}
+
+.form{display:flex;flex-direction:column;gap:14px;min-width:0}
+.form.narrow{max-width:640px}
+fieldset{border:1px solid var(--line);background:var(--surface);border-radius:10px;margin:0;padding:14px 14px 16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+legend{font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);padding:0 6px;margin-left:-6px}
+.row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:600;color:var(--muted);min-width:0}
+input,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;width:100%;min-width:0}
+input.num{font-family:var(--f-num);text-align:right;font-variant-numeric:tabular-nums}
+textarea{resize:vertical;min-height:56px}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{font-size:.78rem;color:var(--muted);font-weight:400}
+.hint b{color:var(--ink);font-weight:600}
+.hint.ok{color:var(--accent);font-weight:600}
+.hint.warn{color:var(--home);font-weight:600}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chipbtn{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.fixed{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:7px}
+.fixed span:first-child{font-size:.85rem;font-weight:600}
+.fixed span:last-child{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.lines{display:flex;flex-direction:column;gap:8px}
+.line{display:grid;grid-template-columns:minmax(0,1fr) 120px 36px;gap:8px;align-items:center}
+.line .x{height:38px;width:36px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:7px;font-size:18px;line-height:1;cursor:pointer}
+.line .x:hover{color:var(--danger);border-color:var(--danger)}
+.add{align-self:flex-start;background:var(--accent-soft);color:var(--accent);border:0;border-radius:7px;padding:8px 12px;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
+.sub{display:flex;justify-content:space-between;font-size:.88rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.sub span:last-child{font-family:var(--f-num);color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+
+/* Paper slip preview */
+.slip{background:var(--paper);color:var(--paper-ink);border:1px solid var(--paper-line);border-radius:4px;padding:22px 20px;box-shadow:0 1px 0 var(--paper-line),0 12px 30px -18px rgba(10,40,36,.35);font-size:12.5px}
+.slip .hd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--accent);padding-bottom:8px;gap:10px}
+.slip .hd strong{font-size:17px;letter-spacing:.14em}
+.slip .hd span{font-weight:600}
+.slip .parties{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 8px}
+.slip .k{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-muted);font-weight:600}
+.slip .v{font-weight:600;overflow-wrap:anywhere}
+.slip .v small{display:block;font-weight:400;color:var(--paper-muted);white-space:pre-line}
+.slip .meta{color:var(--paper-muted);font-size:11.5px;margin-bottom:10px}
+.slip table{width:100%;border-collapse:collapse;margin-bottom:10px}
+.slip th{background:var(--paper-band);text-align:left;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:5px 7px;color:var(--paper-ink)}
+.slip th:last-child,.slip td:last-child{text-align:right}
+.slip td{padding:5px 7px;border-bottom:1px solid var(--paper-line);vertical-align:top}
+.slip td:last-child{font-family:var(--f-num);white-space:nowrap;font-variant-numeric:tabular-nums}
+.slip tr.tot td{font-weight:700;border-bottom:0}
+.slip table.cum{margin:12px 0 0}
+.slip table.cum tr:last-child td{border-bottom:0}
+.slip .net{display:flex;justify-content:space-between;align-items:center;background:var(--accent);color:var(--accent-ink);padding:10px 12px;border-radius:3px;font-weight:700;letter-spacing:.06em}
+.slip .net span:last-child{font-family:var(--f-num);font-size:16px;letter-spacing:0}
+.slip .rem{margin-top:12px}
+.slip .rem div{white-space:pre-line;overflow-wrap:anywhere;margin-top:3px}
+.slip .foot{margin-top:28px;padding-top:8px;border-top:1px solid var(--paper-line);font-size:10px;color:var(--paper-muted);text-align:center}
+
+.actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn{border-radius:8px;padding:12px 16px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;flex:1 1 auto}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border:0}
+.btn.secondary{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn:disabled{opacity:.6;cursor:progress}
+.status{font-size:.82rem;color:var(--muted);min-height:1.2em;margin-top:8px}
+
+/* Phone bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);
+  padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bar .k{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.bar .amt{font-family:var(--f-num);font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar .btns{display:flex;gap:8px}
+.bar .btn{padding:10px 14px;font-size:14px;flex:0 0 auto}
+@media (min-width:860px){.bar{display:none}}
+
+/* History */
+.backup{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-width:720px;margin-bottom:18px}
+.backup p{margin:0;font-size:.85rem;color:var(--muted)}
+.backup p b{color:var(--ink)}
+.backup .warn{color:var(--home);font-weight:600}
+.backup .btns{display:flex;gap:8px;flex-wrap:wrap}
+.backup .btns button,.backup .btns label{border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:7px;padding:8px 12px;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
+.backup .btns label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.hist{display:flex;flex-direction:column;gap:22px;max-width:720px}
+.year h2{font-size:1rem;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.year h2 span{font-size:.78rem;color:var(--muted);font-weight:600}
+.totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.tsum{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-width:0}
+.tsum .k{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.tsum .n{font-family:var(--f-num);font-weight:600;font-size:1rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tsum.home .k{color:var(--home)} .tsum.keep .k{color:var(--keep)}
+.recs{display:flex;flex-direction:column;gap:8px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.rec .r1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.rec .m{font-weight:700}
+.rec .net{font-family:var(--f-num);font-weight:600;font-variant-numeric:tabular-nums}
+.split{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line)}
+.split i{display:block;height:100%}
+.split .h{background:var(--home)} .split .kp{background:var(--keep)}
+.rec .r2{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.rec .r2 b{font-family:var(--f-num);font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.dot.h{background:var(--home)} .dot.kp{background:var(--keep)}
+.rec .note{font-size:.85rem;white-space:pre-line;overflow-wrap:anywhere}
+.rec .tag{font-size:.75rem;font-weight:700;color:var(--home)}
+.rec .acts{display:flex;gap:6px;flex-wrap:wrap}
+.rec .acts button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:7px;padding:6px 11px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.rec .acts button.del{color:var(--danger)}
+.rec .acts button.del.arm{background:var(--danger);color:var(--surface);border-color:var(--danger)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:22px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Helper payslip</h1>
+    <nav class="tabs" aria-label="View">
+      <button type="button" id="tabSlip" aria-pressed="true">New slip</button>
+      <button type="button" id="tabHist" aria-pressed="false">History</button>
+      <button type="button" id="tabMaster" aria-pressed="false">Master</button>
+    </nav>
+  </header>
+
+  <!-- NEW SLIP -->
+  <section id="viewSlip">
+    <div class="grid">
+      <form class="form" id="form" autocomplete="off">
+        <fieldset>
+          <legend>Pay period</legend>
+          <div class="row">
+            <label class="f" for="month">Month<input type="month" id="month"></label>
+            <label class="f" for="payDate">Pay date<input type="date" id="payDate"></label>
+          </div>
+          <div class="hint" id="existHint"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Earnings</legend>
+          <div class="fixed"><span>Basic salary</span><span id="basicOut"></span></div>
+          <div class="hint" id="basicHint"></div>
+          <div class="row">
+            <label class="f" for="restDays">Rest days worked<input class="num" id="restDays" inputmode="decimal"></label>
+            <label class="f" for="restRate">Rate per rest day (RM)<input class="num" id="restRate" inputmode="decimal"></label>
+          </div>
+          <div class="hint" id="restHint"></div>
+          <div class="lines" id="extras"></div>
+          <button type="button" class="add" id="addExtra">+ Add earning</button>
+          <div class="sub"><span>Gross pay</span><span id="grossOut"></span></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Deductions</legend>
+          <div class="lines" id="deds"></div>
+          <button type="button" class="add" id="addDed">+ Add deduction</button>
+          <div class="sub"><span>Total deductions</span><span id="dedOut"></span></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Remarks</legend>
+          <div class="row">
+            <label class="f" for="sentHome">Sent home (RM)<input class="num" id="sentHome" inputmode="decimal" placeholder="0.00"></label>
+            <label class="f" for="keptHere">Kept here (RM)<input class="num" id="keptHere" inputmode="decimal" placeholder="0.00"></label>
+            <label class="f" for="idrRate">Rate: IDR per RM 1<input class="num" id="idrRate" inputmode="decimal" placeholder="e.g. 3,800"></label>
+          </div>
+          <div class="hint" id="idrHint"></div>
+          <div class="chips">
+            <button type="button" class="chipbtn" id="allHome">All sent home</button>
+            <button type="button" class="chipbtn" id="allKeep">All kept here</button>
+          </div>
+          <div class="hint" id="splitHint"></div>
+          <label class="f" for="note">Remarks<textarea id="note" rows="3" placeholder="e.g. Transferred to mother in Indonesia, 9 Nov. Medical: clinic visit 12 Oct."></textarea></label>
+          <span class="hint">Amounts and remarks print on the slip under Remarks.</span>
+        </fieldset>
+      </form>
+
+      <div class="preview-col">
+        <div class="slip" id="slip" aria-label="Payslip preview"></div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="saveBtn">Save to history</button>
+          <button type="button" class="btn secondary" id="dlBtn">Download PDF</button>
+        </div>
+        <div class="status" id="status" role="status"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="viewHist" hidden>
+    <div class="backup">
+      <p>Payslips are stored only on this phone, inside this app. <span id="backupInfo"></span></p>
+      <div class="btns">
+        <button type="button" id="exportBtn">Export backup</button>
+        <label for="importFile">Import backup<input type="file" id="importFile" class="vh" accept=".json,application/json"></label>
+      </div>
+    </div>
+    <div class="hist" id="hist"></div>
+    <div class="status" id="histStatus" role="status"></div>
+  </section>
+
+  <!-- MASTER -->
+  <section id="viewMaster" hidden>
+    <form class="form narrow" id="masterForm" autocomplete="off">
+      <fieldset>
+        <legend>Employee</legend>
+        <label class="f" for="m-employee">Full name (as in passport)<input id="m-employee"></label>
+        <div class="row">
+          <label class="f" for="m-passport">Passport no.<input id="m-passport"></label>
+          <label class="f" for="m-nationality">Nationality<input id="m-nationality"></label>
+        </div>
+        <label class="f" for="m-position">Position<input id="m-position"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Pay</legend>
+        <label class="f" for="m-basic">Basic salary (RM)<input class="num" id="m-basic" inputmode="decimal"></label>
+        <span class="hint">Rest-day rate is worked out from this: basic ÷ 26 × 1.5.</span>
+      </fieldset>
+      <fieldset>
+        <legend>Default deductions</legend>
+        <span class="hint">Added to each new month. You can still change them on the slip.</span>
+        <div class="lines" id="m-deds"></div>
+        <button type="button" class="add" id="m-addDed">+ Add deduction</button>
+      </fieldset>
+      <fieldset>
+        <legend>Employer</legend>
+        <label class="f" for="m-employer">Employer name<input id="m-employer" placeholder="Your full name"></label>
+        <label class="f" for="m-employerInfo">Address or phone (optional)<textarea id="m-employerInfo" rows="2"></textarea></label>
+      </fieldset>
+      <div class="hint ok" id="masterStatus" role="status">Changes save automatically and apply to new slips.</div>
+    </form>
+  </section>
+</div>
+
+<div class="bar" id="bar">
+  <div><div class="k">Net pay</div><div class="amt" id="barNet"></div></div>
+  <div class="btns">
+    <button type="button" class="btn secondary" id="dlBtn2">PDF</button>
+    <button type="button" class="btn primary" id="saveBtn2">Save</button>
+  </div>
+</div>
+
+<script src="jspdf.umd.min.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+  const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/,/g,'')); return isFinite(n) ? n : 0; };
+  const fmt = n => r2(n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const autoRate = basic => r2(basic / 26 * 1.5);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const has = v => String(v == null ? '' : v).trim() !== '';
+
+  function todayISO(){ const d = new Date(); const p = x => String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+  function prevMonthISO(){ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  function sundays(ym){
+    const [y,m] = String(ym).split('-').map(Number); if(!y||!m) return 0;
+    const days = new Date(y, m, 0).getDate(); let c = 0;
+    for (let d=1; d<=days; d++) if (new Date(y, m-1, d).getDay() === 0) c++;
+    return c;
+  }
+  function monthLabel(ym){ const [y,m] = String(ym).split('-').map(Number); if(!y||!m) return ''; return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
+  function periodLabel(ym){ const [y,m] = String(ym).split('-').map(Number); if(!y||!m) return ''; const last = new Date(y,m,0).getDate(); const mon = new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'}); return '1 – '+last+' '+mon; }
+  function dateLabel(iso){ if(!iso) return ''; const [y,m,d] = String(iso).split('-').map(Number); if(!y||!m||!d) return ''; return new Date(y,m-1,d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+  const fmtDays = d => (Math.round(d*10)/10) + (d === 1 ? ' day' : ' days');
+
+  // ---------- storage ----------
+  const MKEY = 'helper-payslip-master-v1', DKEY = 'helper-payslip-draft-v3', HKEY = 'helper-payslip-history-v1', BKEY = 'helper-payslip-lastbackup';
+  const get = k => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch(e) { return null; } };
+  let storageOK = true;
+  const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); storageOK = true; return true; } catch(e) { storageOK = false; return false; } };
+
+  const DETAIL_KEYS = ['employee','passport','nationality','position','employer','employerInfo'];
+  const masterDefaults = { employee:'', passport:'', nationality:'', position:'Domestic helper', employer:'', employerInfo:'', basic:'', idrRate:'',
+    deds:[{label:'SOCSO',amount:''},{label:'Medical',amount:''}] };
+  const firstRun = !get(MKEY);
+  let MASTER = Object.assign(clone(masterDefaults), get(MKEY) || {});
+
+  let HIST = get(HKEY) || {};
+  Object.values(HIST).forEach(normalizeRec);
+  function normalizeRec(r){ if (r && has(r.remarks) && !has(r.note)) { r.note = r.remarks; } if (r) delete r.remarks; return r; }
+  const persistHist = () => put(HKEY, HIST);
+  function lastBackup(){ try { return localStorage.getItem(BKEY) || ''; } catch(e) { return ''; } }
+
+  function newDraft(month){
+    return { month, payDate: todayISO(), restDays:String(sundays(month)), restRate:autoRate(num(MASTER.basic)).toFixed(2), rateAuto:true,
+      extras:[], deds:clone(MASTER.deds), sentHome:'', keptHere:'', idrRate:MASTER.idrRate || '', note:'', locked:false };
+  }
+  let S = get(DKEY);
+  if (!S || !S.month) S = HIST[prevMonthISO()] ? Object.assign(clone(HIST[prevMonthISO()]), {locked:true}) : newDraft(prevMonthISO());
+  const saveDraft = () => put(DKEY, S);
+
+  // A slip = month fields + employee/employer details + basic.
+  // New slips take details and basic from Master; a slip opened from History keeps what was saved with it (locked).
+  function compose(){
+    const R = clone(S);
+    if (!S.locked) { DETAIL_KEYS.forEach(k => R[k] = MASTER[k]); R.basic = MASTER.basic; }
+    delete R.locked;
+    return R;
+  }
+
+  function calc(R){
+    const basic = num(R.basic), days = num(R.restDays), rate = num(R.restRate);
+    const restPay = r2(days * rate);
+    const keep = x => has(x.label) || num(x.amount);
+    const extras = (R.extras||[]).filter(keep).map(x => ({label:has(x.label)?x.label.trim():'Other earning', amount:r2(num(x.amount))}));
+    const deds = (R.deds||[]).filter(keep).map(x => ({label:has(x.label)?x.label.trim():'Deduction', amount:r2(num(x.amount))}));
+    const earnings = [{label:'Basic salary', amount:r2(basic)}];
+    if (days || restPay) earnings.push({label:'Rest day work ('+fmtDays(days)+' × RM '+fmt(rate)+')', amount:restPay});
+    earnings.push(...extras);
+    const gross = r2(earnings.reduce((a,b)=>a+b.amount,0));
+    const totalDed = r2(deds.reduce((a,b)=>a+b.amount,0));
+    return {earnings, deds, gross, totalDed, net:r2(gross-totalDed)};
+  }
+
+  // ---------- IDR (reference only) ----------
+  const fmtIDR = n => Math.round(n).toLocaleString('en-MY');
+  const fmtRate = n => num(n).toLocaleString('en-MY', {maximumFractionDigits:2});
+  const idrOf = r => (num(r.sentHome) && num(r.idrRate)) ? num(r.sentHome) * num(r.idrRate) : 0;
+  const shortMonth = ym => { const [y,m] = String(ym).split('-').map(Number); return (y&&m) ? new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : ''; };
+
+  // Totals from the first saved payslip up to and including R's month (R counted as it is now, saved or not)
+  function cumulative(R){
+    if (!R.month) return null;
+    const map = Object.assign({}, HIST); map[R.month] = R;
+    const list = Object.values(map).filter(r => r && r.month && r.month <= R.month).sort((a,b) => a.month.localeCompare(b.month));
+    let net = 0, home = 0, kept = 0, idr = 0, noRate = 0;
+    list.forEach(r => {
+      net += (r === R || !has(r.net)) ? calc(r).net : num(r.net);
+      home += num(r.sentHome); kept += num(r.keptHere);
+      if (num(r.sentHome)) { if (num(r.idrRate)) idr += idrOf(r); else noRate++; }
+    });
+    const first = list[0].month;
+    return { count:list.length, net:r2(net), home:r2(home), kept:r2(kept), idr, noRate,
+      period: first === R.month ? shortMonth(first) : shortMonth(first) + ' – ' + shortMonth(R.month) };
+  }
+  function cumRows(cu){
+    let homeLabel = 'Sent home';
+    if (cu.idr) homeLabel += ' (approx. IDR ' + fmtIDR(cu.idr) + (cu.noRate ? ', excl. ' + cu.noRate + (cu.noRate === 1 ? ' month' : ' months') + ' with no rate' : '') + ')';
+    return [{label:'Net pay', amount:cu.net}, {label:homeLabel, amount:cu.home}, {label:'Kept here', amount:cu.kept}];
+  }
+
+  // Lines printed under REMARKS
+  function remarkLines(R){
+    const out = [];
+    if (has(R.sentHome) || has(R.keptHere)) {
+      if (num(R.sentHome)) out.push('Sent home: RM ' + fmt(num(R.sentHome)) + (num(R.idrRate) ? ' (approx. IDR ' + fmtIDR(idrOf(R)) + ' at RM 1 = IDR ' + fmtRate(R.idrRate) + ')' : ''));
+      if (num(R.keptHere)) out.push('Kept here: RM ' + fmt(num(R.keptHere)));
+    }
+    if (has(R.note)) out.push(String(R.note).trim());
+    return out;
+  }
+  const IDR_NOTE = 'IDR amounts are for reference only. Wages are paid in RM.';
+  const showsIDR = (R, cu) => !!(idrOf(R) || (cu && cu.idr));
+
+  // ---------- line editors ----------
+  function renderLines(obj, key, host, prefix, onChange){
+    host.innerHTML = '';
+    obj[key].forEach((it, i) => {
+      const row = document.createElement('div'); row.className = 'line';
+      const lab = document.createElement('input'); lab.id = prefix+'-label-'+i; lab.value = it.label; lab.placeholder = key==='deds' ? 'e.g. Medical' : 'e.g. Public holiday';
+      lab.setAttribute('aria-label', (key==='deds'?'Deduction':'Earning')+' description');
+      const amt = document.createElement('input'); amt.id = prefix+'-amount-'+i; amt.className = 'num'; amt.inputMode = 'decimal'; amt.value = it.amount; amt.placeholder = '0.00';
+      amt.setAttribute('aria-label','Amount in RM');
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label','Remove line');
+      lab.addEventListener('input', () => { obj[key][i].label = lab.value; onChange(); });
+      amt.addEventListener('input', () => { obj[key][i].amount = amt.value; onChange(); });
+      x.addEventListener('click', () => { obj[key].splice(i,1); renderLines(obj, key, host, prefix, onChange); onChange(); });
+      row.append(lab, amt, x); host.append(row);
+    });
+  }
+
+  // ---------- slip form ----------
+  const FIELDS = ['month','payDate','restDays','restRate','sentHome','keptHere','idrRate','note'];
+  function fillForm(){
+    FIELDS.forEach(k => { $(k).value = S[k] == null ? '' : S[k]; });
+    renderLines(S, 'extras', $('extras'), 'extras', update);
+    renderLines(S, 'deds', $('deds'), 'deds', update);
+    update();
+  }
+  function renderHints(R, c){
+    $('basicOut').textContent = 'RM ' + fmt(num(R.basic));
+    $('basicHint').innerHTML = S.locked
+      ? 'Name, passport and basic are as saved with this slip. <button type="button" class="linkbtn" id="useMaster">Use current Master</button>'
+      : 'From Master. <button type="button" class="linkbtn" id="goMaster">Change in Master</button>';
+    const um = $('useMaster'); if (um) um.onclick = () => { S.locked = false; if (S.rateAuto) { S.restRate = autoRate(num(MASTER.basic)).toFixed(2); $('restRate').value = S.restRate; } update(); };
+    const gm = $('goMaster'); if (gm) gm.onclick = () => { location.hash = 'master'; };
+
+    const sun = sundays(S.month);
+    let h = monthLabel(S.month) + ' has <b>' + sun + ' Sundays</b>.';
+    if (num(S.restDays) !== sun) h += ' <button type="button" class="linkbtn" id="useSun">Use ' + sun + '</button>';
+    h += ' · Rate ' + (S.rateAuto ? 'is auto: basic ÷ 26 × 1.5' : 'is set by hand. <button type="button" class="linkbtn" id="useAuto">Use auto rate (RM ' + fmt(autoRate(num(R.basic))) + ')</button>');
+    $('restHint').innerHTML = h;
+    const us = $('useSun'); if (us) us.onclick = () => { S.restDays = String(sun); $('restDays').value = S.restDays; update(); };
+    const ua = $('useAuto'); if (ua) ua.onclick = () => { S.rateAuto = true; S.restRate = autoRate(num(R.basic)).toFixed(2); $('restRate').value = S.restRate; update(); };
+
+    const sh = num(S.sentHome), kh = num(S.keptHere), left = r2(c.net - sh - kh);
+    const sp = $('splitHint');
+    if (!has(S.sentHome) && !has(S.keptHere)) { sp.className = 'hint'; sp.textContent = 'Optional. Fill in once you know where the pay went.'; }
+    else if (Math.abs(left) < 0.005) { sp.className = 'hint ok'; sp.textContent = 'Adds up to net pay.'; }
+    else if (left > 0) { sp.className = 'hint warn'; sp.textContent = 'RM ' + fmt(left) + ' not yet accounted for.'; }
+    else { sp.className = 'hint warn'; sp.textContent = 'RM ' + fmt(-left) + ' more than net pay.'; }
+
+    const ih = $('idrHint');
+    if (num(S.sentHome) && num(S.idrRate)) ih.innerHTML = 'Sent home ≈ <b>IDR ' + fmtIDR(idrOf(S)) + '</b>. Reference only; the slip shows it under Remarks.';
+    else if (num(S.sentHome)) ih.textContent = 'Add the day’s rate to show the sent-home amount in IDR. Optional.';
+    else ih.textContent = 'Rate is only used when something is sent home. It carries over to next month.';
+
+    const ex = HIST[S.month];
+    $('existHint').textContent = ex ? 'A ' + monthLabel(S.month) + ' slip is already saved. Saving will replace it.' : '';
+    $('saveBtn').textContent = ex ? 'Update saved slip' : 'Save to history';
+    $('saveBtn2').textContent = ex ? 'Update' : 'Save';
+  }
+  function slipHTML(R, c){
+    const rows = list => list.map(x => '<tr><td>'+esc(x.label)+'</td><td>'+fmt(x.amount)+'</td></tr>').join('');
+    const empExtra = [R.passport ? 'Passport: '+R.passport : '', R.nationality, R.position].filter(has).join('\n');
+    const rem = remarkLines(R), cu = cumulative(R);
+    if (showsIDR(R, cu)) rem.push(IDR_NOTE);
+    return '<div class="hd"><strong>PAYSLIP</strong><span>'+esc(monthLabel(R.month))+'</span></div>'+
+      '<div class="parties"><div><div class="k">Employee</div><div class="v">'+esc(has(R.employee)?R.employee:'—')+'<small>'+esc(empExtra)+'</small></div></div>'+
+      '<div><div class="k">Employer</div><div class="v">'+esc(has(R.employer)?R.employer:'—')+'<small>'+esc(R.employerInfo)+'</small></div></div></div>'+
+      '<div class="meta">Period '+esc(periodLabel(R.month))+(R.payDate ? ' · Paid '+esc(dateLabel(R.payDate)) : '')+'</div>'+
+      '<table><thead><tr><th>Earnings</th><th>RM</th></tr></thead><tbody>'+rows(c.earnings)+
+        '<tr class="tot"><td>Gross pay</td><td>'+fmt(c.gross)+'</td></tr></tbody></table>'+
+      (c.deds.length ? '<table><thead><tr><th>Deductions</th><th>RM</th></tr></thead><tbody>'+rows(c.deds)+
+        '<tr class="tot"><td>Total deductions</td><td>'+fmt(c.totalDed)+'</td></tr></tbody></table>' : '')+
+      '<div class="net"><span>NET PAY</span><span>RM '+fmt(c.net)+'</span></div>'+
+      (cu ? '<table class="cum"><thead><tr><th>Cumulative · '+esc(cu.period)+'</th><th>RM</th></tr></thead><tbody>'+rows(cumRows(cu))+'</tbody></table>' : '')+
+      (rem.length ? '<div class="rem"><div class="k">Remarks</div><div>'+esc(rem.join('\n'))+'</div></div>' : '')+
+      '<div class="foot">This is a computer-generated payslip. No signature is required.</div>';
+  }
+  function update(){
+    const R = compose(), c = calc(R);
+    $('grossOut').textContent = 'RM ' + fmt(c.gross);
+    $('dedOut').textContent = 'RM ' + fmt(c.totalDed);
+    $('barNet').textContent = 'RM ' + fmt(c.net);
+    renderHints(R, c); $('slip').innerHTML = slipHTML(R, c); saveDraft();
+  }
+
+  FIELDS.forEach(k => {
+    const el = $(k);
+    el.addEventListener('input', () => {
+      S[k] = el.value;
+      if (k === 'restRate') S.rateAuto = false;
+      if (k === 'idrRate') { MASTER.idrRate = el.value; put(MKEY, MASTER); }   // remembered for next month
+      update();
+    });
+  });
+  $('month').addEventListener('change', () => {
+    const m = $('month').value; if (!m) return;
+    if (HIST[m]) { S = Object.assign(clone(HIST[m]), {locked:true}); fillForm(); status('Opened the saved ' + monthLabel(m) + ' slip.'); return; }
+    S = newDraft(m); fillForm(); status('');
+  });
+  $('allHome').onclick = () => { const n = calc(compose()).net.toFixed(2); S.sentHome = n; S.keptHere = ''; $('sentHome').value = n; $('keptHere').value = ''; update(); };
+  $('allKeep').onclick = () => { const n = calc(compose()).net.toFixed(2); S.keptHere = n; S.sentHome = ''; $('keptHere').value = n; $('sentHome').value = ''; update(); };
+  $('addExtra').onclick = () => { S.extras.push({label:'',amount:''}); renderLines(S,'extras',$('extras'),'extras',update); update(); $('extras-label-'+(S.extras.length-1)).focus(); };
+  $('addDed').onclick = () => { S.deds.push({label:'',amount:''}); renderLines(S,'deds',$('deds'),'deds',update); update(); $('deds-label-'+(S.deds.length-1)).focus(); };
+  $('form').addEventListener('submit', e => e.preventDefault());
+
+  // ---------- master ----------
+  const MFIELDS = ['employee','passport','nationality','position','employer','employerInfo','basic'];
+  function masterChanged(){
+    put(MKEY, MASTER);
+    if (!S.locked && S.rateAuto) { S.restRate = autoRate(num(MASTER.basic)).toFixed(2); $('restRate').value = S.restRate; }
+    $('masterStatus').textContent = storageOK ? 'Saved. New slips use these details.' : 'This browser would not save these details.';
+    $('masterStatus').className = storageOK ? 'hint ok' : 'hint warn';
+    update();
+  }
+  function fillMaster(){
+    MFIELDS.forEach(k => { $('m-'+k).value = MASTER[k] == null ? '' : MASTER[k]; });
+    renderLines(MASTER, 'deds', $('m-deds'), 'm-deds', masterDedsChanged);
+  }
+  function masterDedsChanged(){
+    if (!S.locked && !HIST[S.month]) { S.deds = clone(MASTER.deds); renderLines(S,'deds',$('deds'),'deds',update); }
+    masterChanged();
+  }
+  MFIELDS.forEach(k => $('m-'+k).addEventListener('input', () => { MASTER[k] = $('m-'+k).value; masterChanged(); }));
+  $('m-addDed').onclick = () => { MASTER.deds.push({label:'',amount:''}); renderLines(MASTER,'deds',$('m-deds'),'m-deds',masterDedsChanged); masterDedsChanged(); $('m-deds-label-'+(MASTER.deds.length-1)).focus(); };
+  $('masterForm').addEventListener('submit', e => e.preventDefault());
+
+  // ---------- views ----------
+  function route(){
+    const v = location.hash === '#history' ? 'history' : location.hash === '#master' ? 'master' : 'slip';
+    $('viewSlip').hidden = v !== 'slip'; $('viewHist').hidden = v !== 'history'; $('viewMaster').hidden = v !== 'master';
+    $('bar').hidden = v !== 'slip';
+    $('tabSlip').setAttribute('aria-pressed', String(v === 'slip'));
+    $('tabHist').setAttribute('aria-pressed', String(v === 'history'));
+    $('tabMaster').setAttribute('aria-pressed', String(v === 'master'));
+  }
+  $('tabSlip').onclick = () => { location.hash = 'slip'; };
+  $('tabHist').onclick = () => { location.hash = 'history'; };
+  $('tabMaster').onclick = () => { location.hash = 'master'; };
+  window.addEventListener('hashchange', route);
+
+  // ---------- history ----------
+  function renderBackupInfo(){
+    const n = Object.keys(HIST).length, lb = lastBackup();
+    let t;
+    if (!storageOK) t = '<span class="warn">This device is not letting the app save. Export a backup before you close it.</span>';
+    else if (!n) t = 'Import a backup file to restore earlier months.';
+    else if (!lb) t = '<span class="warn">Not backed up yet.</span> Export a copy to Files so nothing is lost if browser data is cleared.';
+    else {
+      const days = Math.floor((Date.now() - new Date(lb).getTime()) / 86400000);
+      t = 'Last backup: <b>' + esc(dateLabel(lb.slice(0,10))) + '</b>.' + (days > 31 ? ' <span class="warn">Time for a new one.</span>' : '');
+    }
+    $('backupInfo').innerHTML = t;
+  }
+  function renderHist(){
+    renderBackupInfo();
+    const host = $('hist');
+    const recs = Object.values(HIST).sort((a,b) => b.month.localeCompare(a.month));
+    if (!recs.length) { host.innerHTML = '<div class="empty">No saved payslips yet. Fill in a month on <b>New slip</b> and tap <b>Save</b>.</div>'; return; }
+    const byYear = {};
+    recs.forEach(r => { (byYear[r.month.slice(0,4)] = byYear[r.month.slice(0,4)] || []).push(r); });
+    host.innerHTML = Object.keys(byYear).sort().reverse().map(y => {
+      const list = byYear[y];
+      const tNet = list.reduce((a,r)=>a+num(r.net),0), tH = list.reduce((a,r)=>a+num(r.sentHome),0), tK = list.reduce((a,r)=>a+num(r.keptHere),0);
+      return '<div class="year"><h2>'+y+'<span>'+list.length+(list.length===1?' payslip':' payslips')+'</span></h2>'+
+        '<div class="totals"><div class="tsum"><div class="k">Net paid</div><div class="n">'+fmt(tNet)+'</div></div>'+
+        '<div class="tsum home"><div class="k">Sent home</div><div class="n">'+fmt(tH)+'</div></div>'+
+        '<div class="tsum keep"><div class="k">Kept here</div><div class="n">'+fmt(tK)+'</div></div></div>'+
+        '<div class="recs">'+list.map(recHTML).join('')+'</div></div>';
+    }).join('');
+    host.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openRec(b.dataset.open));
+    host.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => download(HIST[b.dataset.pdf], 'histStatus'));
+    host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => delRec(b));
+  }
+  function recHTML(r){
+    const net = num(r.net), h = num(r.sentHome), k = num(r.keptHere), recorded = has(r.sentHome) || has(r.keptHere);
+    const left = r2(net - h - k);
+    const base = Math.max(net, h + k) || 1;
+    return '<article class="rec"><div class="r1"><span class="m">'+esc(monthLabel(r.month))+'</span><span class="net">RM '+fmt(net)+'</span></div>'+
+      (recorded ? '<div class="split" aria-hidden="true"><i class="h" style="width:'+(h/base*100)+'%"></i><i class="kp" style="width:'+(k/base*100)+'%"></i></div>'+
+        '<div class="r2"><span><span class="dot h"></span>Sent home <b>'+fmt(h)+'</b>'+(idrOf(r) ? ' ≈ IDR '+fmtIDR(idrOf(r)) : '')+'</span><span><span class="dot kp"></span>Kept here <b>'+fmt(k)+'</b></span>'+
+        (Math.abs(left) >= 0.005 ? '<span class="tag">'+(left>0 ? 'RM '+fmt(left)+' unaccounted' : 'RM '+fmt(-left)+' over net')+'</span>' : '')+'</div>'
+        : '<div class="tag">Transfer not recorded</div>')+
+      (has(r.note) ? '<div class="note">'+esc(r.note)+'</div>' : '')+
+      '<div class="acts"><button type="button" data-open="'+esc(r.month)+'">Open / edit</button><button type="button" data-pdf="'+esc(r.month)+'">PDF</button><button type="button" class="del" data-del="'+esc(r.month)+'">Delete</button></div></article>';
+  }
+  function openRec(month){
+    const r = HIST[month]; if (!r) return;
+    S = Object.assign(clone(r), {locked:true}); fillForm();
+    location.hash = 'slip'; window.scrollTo(0,0);
+    status('Opened ' + monthLabel(month) + '. Change anything, then tap Update.');
+  }
+  function delRec(b){
+    const m = b.dataset.del;
+    if (!b.classList.contains('arm')) {
+      b.classList.add('arm'); b.textContent = 'Tap again to delete';
+      setTimeout(() => { if (b.isConnected) { b.classList.remove('arm'); b.textContent = 'Delete'; } }, 4000);
+      return;
+    }
+    delete HIST[m]; persistHist(); renderHist(); update();
+    $('histStatus').textContent = 'Deleted ' + monthLabel(m) + '.';
+  }
+
+  // ---------- save ----------
+  const status = t => { $('status').textContent = t; };
+  function saveRec(){
+    if (!S.month) { status('Pick a month first.'); return; }
+    const R = compose(), c = calc(R);
+    const rec = Object.assign(R, {rateAuto:!!S.rateAuto, gross:c.gross, totalDed:c.totalDed, net:c.net, savedAt:new Date().toISOString()});
+    const prev = HIST[S.month];
+    HIST[S.month] = rec;
+    if (persistHist()) { askPersist(); S = Object.assign(clone(rec), {locked:true}); status('Saved ' + monthLabel(S.month) + ' on this device.'); }
+    else { if (prev) HIST[S.month] = prev; else delete HIST[S.month]; status('This device would not save it. Download the PDF to keep a copy.'); }
+    renderHist(); update();
+  }
+  $('saveBtn').onclick = saveRec; $('saveBtn2').onclick = saveRec;
+
+  // ---------- backup ----------
+  // Phone: opens the share sheet (Save to Files, WhatsApp, Print…). Elsewhere: a normal download.
+  async function saveFile(filename, data, st){
+    const mime = filename.endsWith('.pdf') ? 'application/pdf' : 'application/json';
+    const blob = data instanceof Blob ? data : new Blob([data], {type:mime});
+    let file = null;
+    try { file = new File([blob], filename, {type:mime}); } catch(e) {}
+    if (file && navigator.canShare && navigator.canShare({files:[file]})) {
+      try { await navigator.share({files:[file]}); return true; }
+      catch(e) { if (e && e.name === 'AbortError') { st('Cancelled.'); return false; } }
+    }
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return true;
+    } catch(e) { st('Could not save the file on this device.'); return false; }
+  }
+  function askPersist(){ try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e) {} }
+  async function exportBackup(){
+    const st = msg => { $('histStatus').textContent = msg; };
+    const recs = Object.values(HIST).sort((a,b) => a.month.localeCompare(b.month));
+    if (!recs.length) { st('Nothing to export yet.'); return; }
+    const body = JSON.stringify({app:'helper-payslip', version:2, exportedAt:new Date().toISOString(), master:MASTER, payslips:recs}, null, 2);
+    const filename = 'payslip-backup-' + todayISO() + '.json';
+    if (await saveFile(filename, body, st)) {
+      try { localStorage.setItem(BKEY, new Date().toISOString()); } catch(e) {}
+      st('Backup saved: ' + filename); renderBackupInfo();
+    }
+  }
+  function importBackup(file){
+    const st = msg => { $('histStatus').textContent = msg; };
+    const fr = new FileReader();
+    fr.onload = () => {
+      let data;
+      try { data = JSON.parse(fr.result); } catch(e) { st('That file is not a payslip backup.'); return; }
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.payslips) ? data.payslips : null);
+      if (!list) { st('That file is not a payslip backup.'); return; }
+      let added = 0, replaced = 0;
+      list.forEach(r => {
+        if (!r || !/^\d{4}-\d{2}$/.test(String(r.month))) return;
+        if (HIST[r.month]) replaced++; else added++;
+        HIST[r.month] = normalizeRec(r);
+      });
+      const m = data.master || data.details;
+      if (m) {   // fill only Master fields that are still empty here
+        DETAIL_KEYS.concat(['basic']).forEach(k => { if (has(m[k]) && !has(MASTER[k])) MASTER[k] = m[k]; });
+        if (Array.isArray(m.deds) && !MASTER.deds.length) MASTER.deds = m.deds;
+        put(MKEY, MASTER); fillMaster();
+      }
+      if (!persistHist()) st('Imported, but this device would not keep it.');
+      else st('Imported ' + (added + replaced) + ' payslips' + (replaced ? ' (' + replaced + ' replaced)' : '') + '.');
+      renderHist(); update();
+    };
+    fr.onerror = () => st('Could not read that file.');
+    fr.readAsText(file);
+  }
+  $('exportBtn').onclick = exportBackup;
+  $('importFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) importBackup(f); e.target.value = ''; });
+
+  // ---------- PDF ----------
+  function buildPdf(R, c){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a5'});
+    const W = 148, H = 210, M = 14, Rx = W - M;
+    const ACC = [15,110,102], INK = [19,32,30], MUT = [102,115,111], BAND = [234,243,241], LINE = [214,224,221];
+    let y = 18;
+    const ensure = h => { if (y + h > H - 22) { doc.addPage(); y = 18; } };
+    const t = v => String(v == null ? '' : v).trim();
+
+    doc.setTextColor(...INK);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setCharSpace(1.2);
+    doc.text('PAYSLIP', M, y); doc.setCharSpace(0);
+    doc.setFontSize(11); doc.text(monthLabel(R.month), Rx, y, {align:'right'});
+    y += 3.5; doc.setDrawColor(...ACC); doc.setLineWidth(0.7); doc.line(M, y, Rx, y);
+    y += 7;
+
+    const colW = (W - 2*M - 8) / 2, x2 = M + colW + 8;
+    function party(x, label, name, extra){
+      let yy = y;
+      doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...MUT); doc.setCharSpace(0.5);
+      doc.text(label, x, yy); doc.setCharSpace(0); yy += 4.5;
+      doc.setFontSize(10.5); doc.setTextColor(...INK);
+      const nl = doc.splitTextToSize(name || '-', colW); doc.text(nl, x, yy); yy += nl.length * 4.6;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...MUT);
+      extra.filter(Boolean).forEach(s => { const l = doc.splitTextToSize(s, colW); doc.text(l, x, yy); yy += l.length * 3.8; });
+      return yy;
+    }
+    const y1 = party(M, 'EMPLOYEE', t(R.employee), [t(R.passport) ? 'Passport: ' + t(R.passport) : '', t(R.nationality), t(R.position)]);
+    const y2 = party(x2, 'EMPLOYER', t(R.employer), t(R.employerInfo) ? t(R.employerInfo).split('\n') : []);
+    y = Math.max(y1, y2) + 3;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...MUT);
+    doc.text('Pay period: ' + periodLabel(R.month) + (R.payDate ? '      Pay date: ' + dateLabel(R.payDate) : ''), M, y);
+    y += 7;
+
+    function table(title, rows, totLabel, tot){
+      ensure(8 + rows.length * 6.5 + 7);
+      doc.setFillColor(...BAND); doc.rect(M, y - 4.2, W - 2*M, 6.4, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...INK); doc.setCharSpace(0.5);
+      doc.text(title, M + 2, y); doc.text('RM', Rx - 2, y, {align:'right'}); doc.setCharSpace(0);
+      y += 7;
+      doc.setFontSize(9.5);
+      rows.forEach(r => {
+        ensure(6.5);
+        const lines = doc.splitTextToSize(r.label, W - 2*M - 34);
+        doc.setFont('helvetica','normal'); doc.setTextColor(...INK);
+        doc.text(lines, M + 2, y);
+        doc.setFont('courier','normal'); doc.text(fmt(r.amount), Rx - 2, y, {align:'right'});
+        y += (lines.length - 1) * 4.2 + 2.4;
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, y, Rx, y);
+        y += 4.1;
+      });
+      if (totLabel) {
+        doc.setFont('helvetica','bold'); doc.text(totLabel, M + 2, y);
+        doc.setFont('courier','bold'); doc.text(fmt(tot), Rx - 2, y, {align:'right'});
+        y += 8;
+      } else y += 2;
+    }
+    table('EARNINGS', c.earnings, 'Gross pay', c.gross);
+    if (c.deds.length) table('DEDUCTIONS', c.deds, 'Total deductions', c.totalDed);
+
+    ensure(14);
+    doc.setFillColor(...ACC); doc.rect(M, y - 2, W - 2*M, 11, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setCharSpace(0.6);
+    doc.text('NET PAY', M + 3, y + 5.1); doc.setCharSpace(0);
+    doc.setFont('courier','bold'); doc.setFontSize(12.5);
+    doc.text('RM ' + fmt(c.net), Rx - 3, y + 5.2, {align:'right'});
+    y += 17;
+
+    const cu = cumulative(R);
+    if (cu) table('CUMULATIVE · ' + cu.period.toUpperCase(), cumRows(cu));
+
+    const rem = remarkLines(R);
+    if (showsIDR(R, cu)) rem.push(IDR_NOTE);
+    if (rem.length) {
+      ensure(10);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...MUT); doc.setCharSpace(0.5);
+      doc.text('REMARKS', M, y); doc.setCharSpace(0); y += 4.5;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...INK);
+      rem.join('\n').split('\n').forEach(line => {
+        const l = doc.splitTextToSize(line, W - 2*M);
+        ensure(l.length * 4.2); doc.text(l, M, y); y += l.length * 4.2;
+      });
+    }
+
+    // footer on every page
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, H - 16, Rx, H - 16);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...MUT);
+      doc.text('This is a computer-generated payslip. No signature is required.', W/2, H - 11.5, {align:'center'});
+      doc.setFontSize(6.5);
+      doc.text('Generated on ' + dateLabel(todayISO()) + (pages > 1 ? '  ·  Page ' + p + ' of ' + pages : ''), W/2, H - 8, {align:'center'});
+    }
+    return doc;
+  }
+
+  let dlBusy = false;
+  async function download(R, statusId){
+    const st = msg => { $(statusId).textContent = msg; };
+    if (dlBusy) return;
+    if (!window.jspdf) { st('The PDF maker did not load. Check your connection and reopen the page.'); return; }
+    dlBusy = true; st('Preparing PDF…');
+    try {
+      const blob = buildPdf(R, calc(R)).output('blob');
+      const safe = (String(R.employee||'').trim() || 'Helper').replace(/[^\w\- ]+/g,'').replace(/\s+/g,'_');
+      const filename = 'Payslip_' + safe + '_' + (R.month || 'month') + '.pdf';
+      if (await saveFile(filename, blob, st)) st('Saved ' + filename);
+    } finally { dlBusy = false; }
+  }
+  $('dlBtn').onclick = () => download(compose(), 'status'); $('dlBtn2').onclick = () => download(compose(), 'status');
+
+  // ---------- boot ----------
+  if (firstRun && !location.hash) {
+    history.replaceState(null, '', '#master');
+    $('masterStatus').textContent = 'Start here: fill in her details once. They save automatically.';
+  }
+  fillMaster(); fillForm(); renderHist(); route();
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
